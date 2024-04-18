@@ -16,7 +16,8 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  check:
+  update:
+    name: "Update package ${{ inputs.package }}"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -57,7 +58,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          path: ../source
+          path: source
           repository: ${{ fromJson(steps.source.outputs.result).repository }}
           ref: ${{ inputs.commit }}
           sparse-checkout: ${{ fromJson(steps.source.outputs.result).checkout }}
@@ -74,7 +75,7 @@ jobs:
               `ADD . .`,
             ];
 
-            const filename = path.join('..', 'source', 'Dockerfile');
+            const filename = path.join('source', 'Dockerfile');
 
             await fs.writeFile(filename, lines.join('\n') + '\n', 'utf-8');
 
@@ -88,7 +89,7 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
-          context: ../source
-          push: true
+          context: source
+          push: "true"
           tags: |-
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ fromJson(steps.source.outputs.result.name) }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ fromJson(steps.source.outputs.result).name }}
