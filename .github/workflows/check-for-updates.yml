@@ -26,6 +26,7 @@ jobs:
               console.log(chalk.cyan.bold(id) + `: ${manifest.package.title}`);
 
               await check(manifest);
+              console.log();
             }
 
             async function collect() {
@@ -80,18 +81,9 @@ jobs:
               const { data: commits } = await github.rest.repos.listCommits({
                 owner,
                 repo,
-                path: repository.path,
+                path: repository.path || undefined,
                 per_page: 8,
               });
-
-              for (const entry of commits) {
-                const { sha, commit, author } = entry;
-                const subject = commit.message.split('\n', 1)[0];
-
-                console.log(chalk.yellow(commit.committer.date), chalk.gray(entry.sha));
-                console.log(chalk.bold(subject), chalk.green(author.login), commit.author.email);
-                console.log();
-              }
 
               try {
                 const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
@@ -99,6 +91,21 @@ jobs:
                   package_name: `lexicon-${manifest.package.name}`,
                   org: env.GITHUB_REPOSITORY_OWNER,
                 });
+
+                const built = new Set();
+                for (const version of versions) {
+                  const tag = version.metadata.container.tags.find(tag => tag.startsWith('sha-'));
+                  if (tag) {
+                    built.add(tag.replace(/^sha-/, ''));
+                  }
+                }
+
+                commits.reverse();
+                for (const entry of commits) {
+                  if (!built.has(entry.sha)) {
+                    await build(manifest, entry);
+                  }
+                }
               } catch (err) {
                 if (String(err).includes('Package not found')) {
                   await build(manifest, commits[commits.length - 1]);
@@ -108,17 +115,26 @@ jobs:
               }
             }
 
-            async function build(manifest, commit) {
-              await github.rest.actions.createWorkflowDispatch({
+            async function build(manifest, entry) {
+              const { sha, commit, author } = entry;
+              const subject = commit.message.split('\n', 1)[0];
+
+              console.log(chalk.yellow(commit.committer.date), chalk.gray(entry.sha));
+              console.log(chalk.bold(subject), chalk.blue(author.login), commit.author.email);
+              console.log();
+
+              const { data } = await github.rest.actions.createWorkflowDispatch({
                 owner: env.GITHUB_REPOSITORY_OWNER,
                 repo: env.GITHUB_REPOSITORY.split('/', 2)[1],
                 workflow_id: 'update.yml',
                 ref: env.GITHUB_REF,
                 inputs: {
                   package: manifest.package.id,
-                  commit: commit.sha,
+                  commit: entry.sha,
                 },
               });
+
+              console.log(chalk.bold.green('==> Started update workflow'));
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
