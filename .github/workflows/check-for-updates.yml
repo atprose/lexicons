@@ -2,10 +2,6 @@ name: "Check for Lexicon updates"
 
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
   schedule:
     - cron: >-
         0,12,24,36,48 * * * *
@@ -14,13 +10,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      actions: write
+      contents: read
       packages: read
     steps:
       - name: Checkout registry
         uses: actions/checkout@v4
       - name: Check for updates
-        uses: silverlyra/script-action@v0.2.1
+        uses: silverlyra/script-action@v0.2
         with:
           script: |
             const lexicons = await collect();
@@ -96,12 +93,32 @@ jobs:
                 console.log();
               }
 
-              const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
-                package_type: 'container',
-                package_name: `lexicon-${manifest.package.name}`,
-                org: env.GITHUB_ORGANIZATION,
+              try {
+                const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
+                  package_type: 'container',
+                  package_name: `lexicon-${manifest.package.name}`,
+                  org: env.GITHUB_REPOSITORY_OWNER,
+                });
+              } catch (err) {
+                if (String(err).includes('Package not found')) {
+                  await build(manifest, commits[commits.length - 1]);
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            async function build(manifest, commit) {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: env.GITHUB_REPOSITORY_OWNER,
+                repo: env.GITHUB_REPOSITORY.split('/', 2)[1],
+                workflow_id: 'update.yml',
+                ref: env.GITHUB_REF,
+                inputs: {
+                  package: manifest.package.id,
+                  commit: commit.sha,
+                },
               });
             }
         env:
-          GITHUB_ORGANIZATION: ${{ github.repository_owner }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
