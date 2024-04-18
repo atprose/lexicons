@@ -2,7 +2,8 @@
   "lexicon": 0,
   "package": {
     "id": "com.atproto",
-    "name": "AT Protocol",
+    "name": "at",
+    "title": "AT Protocol",
     "homepage": "https://atproto.com/"
   },
   "source": {
