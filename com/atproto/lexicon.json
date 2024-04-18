@@ -1,0 +1,15 @@
+{
+  "lexicon": 0,
+  "package": {
+    "id": "com.atproto",
+    "name": "AT Protocol",
+    "homepage": "https://atproto.com/"
+  },
+  "source": {
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/bluesky-social/atproto.git",
+      "path": "lexicons/com/atproto"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "lexicon": 0,
+  "package": {
+    "id": "tools.ozone",
+    "name": "Ozone",
+    "description": "Labeling service for Bluesky",
+    "homepage": "https://github.com/bluesky-social/ozone"
+  },
+  "source": {
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/bluesky-social/atproto.git",
+      "path": "lexicons/tools/ozone"
+    }
+  },
+  "dependencies": {
+    "com.atproto": {}
+  }
+}

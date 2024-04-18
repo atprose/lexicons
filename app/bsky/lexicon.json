@@ -1,0 +1,18 @@
+{
+  "lexicon": 0,
+  "package": {
+    "id": "app.bsky",
+    "name": "Bluesky",
+    "homepage": "https://docs.bsky.app/"
+  },
+  "source": {
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/bluesky-social/atproto.git",
+      "path": "lexicons/app/bsky"
+    }
+  },
+  "dependencies": {
+    "com.atproto": {}
+  }
+}
