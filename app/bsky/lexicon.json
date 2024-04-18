@@ -2,7 +2,8 @@
   "lexicon": 0,
   "package": {
     "id": "app.bsky",
-    "name": "Bluesky",
+    "name": "bsky",
+    "title": "Bluesky",
     "homepage": "https://docs.bsky.app/"
   },
   "source": {

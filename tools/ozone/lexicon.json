@@ -2,7 +2,8 @@
   "lexicon": 0,
   "package": {
     "id": "tools.ozone",
-    "name": "Ozone",
+    "name": "ozone",
+    "title": "Ozone",
     "description": "Labeling service for Bluesky",
     "homepage": "https://github.com/bluesky-social/ozone"
   },

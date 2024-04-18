@@ -1,0 +1,124 @@
+name: "Check for Lexicon updates"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: >-
+        0,12,24,36,48 * * * *
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout registry
+        uses: actions/checkout@v4
+      - name: Check for updates
+        uses: silverlyra/script-action@v0.2
+        with:
+          script: |
+            const lexicons = await collect();
+
+            for (const [id, manifest] of lexicons.entries()) {
+              console.log(chalk.cyan.bold(id) + `: ${manifest.package.title}`);
+
+              await check(manifest);
+            }
+
+            async function collect() {
+              const globber = await glob.create('**/lexicon.json');
+              const files = await globber.glob();
+
+              const discovered = new Map();
+
+              for (const file of files) {
+                const manifest = JSON.parse(await fs.readFile(file, 'utf-8'));
+                discovered.set(manifest.package.id, manifest);
+              }
+
+              const lexicons = new Map();
+
+              const walk = (manifest) => {
+                if (lexicons.has(manifest.package.id))
+                  return;
+
+                if (manifest.dependencies && typeof manifest.dependencies == "object") {
+                  for (const id of Object.keys(manifest.dependencies)) {
+                    const dependency = discovered.get(id);
+                    if (dependency == null) {
+                      throw new Error(`${manifest.package.id} depends on ${id}, but package not known`);
+                    }
+
+                    walk(dependency);
+                  }
+                }
+
+                lexicons.set(manifest.package.id, manifest);
+              };
+
+              for (const manifest of discovered.values())
+                walk(manifest);
+
+              return lexicons;
+            }
+
+            async function check(manifest) {
+              const { source: { repository } } = manifest;
+
+              if (!repository || repository.type !== 'git' || typeof repository.url !== 'string')
+                throw new Error(`Invalid repository for ${manifest.package.id}`);
+
+              const url = new URL(repository.url);
+              if (url.origin !== 'https://github.com')
+                throw new Error(`Non-GitHub repository for ${manifest.package.id}`);
+
+              const [owner, repo] = url.pathname.replace(/^\//, '').replace(/\.git$/, '').split('/', 2);
+
+              const { data: commits } = await github.rest.repos.listCommits({
+                owner,
+                repo,
+                path: repository.path,
+                per_page: 8,
+              });
+
+              for (const entry of commits) {
+                const { sha, commit, author } = entry;
+                const subject = commit.message.split('\n', 1)[0];
+
+                console.log(chalk.yellow(commit.committer.date), chalk.gray(entry.sha));
+                console.log(chalk.bold(subject), chalk.green(author.login), commit.author.email);
+                console.log();
+              }
+
+              try {
+                const { data: versions } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
+                  package_type: 'container',
+                  package_name: `lexicon-${manifest.package.name}`,
+                  org: env.GITHUB_REPOSITORY_OWNER,
+                });
+              } catch (err) {
+                if (String(err).includes('Package not found')) {
+                  await build(manifest, commits[commits.length - 1]);
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            async function build(manifest, commit) {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: env.GITHUB_REPOSITORY_OWNER,
+                repo: env.GITHUB_REPOSITORY.split('/', 2)[1],
+                workflow_id: 'update.yml',
+                ref: env.GITHUB_REF,
+                inputs: {
+                  package: manifest.package.id,
+                  commit: commit.sha,
+                },
+              });
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
