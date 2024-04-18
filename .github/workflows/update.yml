@@ -52,6 +52,7 @@ jobs:
             return {
               name: `lexicon-${manifest.package.name}`,
               repository: `${owner}/${repo}`,
+              path: repository.path ?? '',
               checkout: repository.path ? checkout.join('\n') : '',
             }
 
@@ -63,6 +64,21 @@ jobs:
           ref: ${{ inputs.commit }}
           sparse-checkout: ${{ fromJson(steps.source.outputs.result).checkout }}
           sparse-checkout-cone-mode: false
+
+      - name: Relocate additional files
+        run: |
+          cp "../$(tr . / <<< "$PACKAGE")/lexicon.json" "$DESTINATION"
+          mv LICENSE* "$DESTINATION" || true
+        working-directory: source
+        env:
+          PACKAGE: ${{ inputs.package }}
+          DESTINATION: ${{ fromJson(steps.source.outputs.result).path }}
+        if: fromJson(steps.source.outputs.result).path != ''
+
+      - name: Show source contents
+        run: |
+          ls -lR
+        working-directory: source
 
       - id: dockerfile
         name: Create dockerfile
@@ -93,3 +109,4 @@ jobs:
           push: "true"
           tags: |-
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ fromJson(steps.source.outputs.result).name }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ fromJson(steps.source.outputs.result).name }}:sha-${{ inputs.commit }}
