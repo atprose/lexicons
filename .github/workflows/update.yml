@@ -32,7 +32,8 @@ jobs:
         with:
           input: ${{ toJson(inputs.package) }}
           script: |
-            const filename = path.join(input.replaceAll('.', path.sep), 'lexicon.json');
+            const definition = input.replaceAll('.', path.sep);
+            const filename = path.join(definition, 'lexicon.json');
 
             const manifest = JSON.parse(await fs.readFile(filename, 'utf-8'));
             const { source: { repository } } = manifest;
@@ -51,6 +52,7 @@ jobs:
 
             return {
               name: `lexicon-${manifest.package.name}`,
+              definition,
               repository: `${owner}/${repo}`,
               path: repository.path ?? '',
               checkout: repository.path ? checkout.join('\n') : '',
@@ -65,13 +67,15 @@ jobs:
           sparse-checkout: ${{ fromJson(steps.source.outputs.result).checkout }}
           sparse-checkout-cone-mode: false
 
-      - name: Relocate additional files
+      - name: Prepare image
         run: |
-          cp "../$(tr . / <<< "$PACKAGE")/lexicon.json" "$DESTINATION"
+          rm -fr .git
+          cp "../${DEFINITION}/lexicon.json" "$DESTINATION"
           mv LICENSE* "$DESTINATION" || true
         working-directory: source
         env:
           PACKAGE: ${{ inputs.package }}
+          DEFINITION: ${{ fromJson(steps.source.outputs.result).definition }}
           DESTINATION: ${{ fromJson(steps.source.outputs.result).path }}
         if: fromJson(steps.source.outputs.result).path != ''
 
